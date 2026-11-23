@@ -1,12 +1,12 @@
 // player.js — on-foot player
 const PLAYER = {
-  x: 0, y: 0, angle: 0, health: 100, weapon: 'fists', ammo: 30,
+  x: 0, y: 0, angle: 0, health: 100, armor: 0, weapon: 'fists', ammo: 30,
   onFoot: true, vehicleId: -1, fireCd: 0, meleeCd: 0, deadTimer: 0,
   radius: 12, speed: 210, sprint: 360,
 };
 
 function initPlayer(x, y) {
-  PLAYER.x = x; PLAYER.y = y; PLAYER.angle = 0; PLAYER.health = 100;
+  PLAYER.x = x; PLAYER.y = y; PLAYER.angle = 0; PLAYER.health = 100; PLAYER.armor = 0;
   PLAYER.weapon = 'fists'; PLAYER.ammo = 30; PLAYER.onFoot = true;
   PLAYER.vehicleId = -1; PLAYER.fireCd = 0; PLAYER.meleeCd = 0; PLAYER.deadTimer = 0;
 }
@@ -152,6 +152,11 @@ function playerFire() {
 
 function damagePlayer(amount) {
   if (PLAYER.deadTimer > 0) return;
+  if (PLAYER.armor > 0) {
+    const a = Math.min(PLAYER.armor, amount);
+    PLAYER.armor -= a;
+    amount -= a;
+  }
   PLAYER.health -= amount;
   if (PLAYER.health <= 0) {
     PLAYER.health = 0;

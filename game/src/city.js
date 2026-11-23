@@ -159,10 +159,11 @@ function drawCity(ctx, cam, day) {
         for (let i = 0; i < 3; i++) {
           const px = x + 20 + ((seed * (i + 1) * 37) % (T - 40));
           const py = y + 20 + ((seed * (i + 2) * 53) % (T - 40));
+          const sway = Math.sin(performance.now() / 800 + tx + ty) * 3;
           ctx.fillStyle = CONFIG.COLORS.parkDark;
-          ctx.beginPath(); ctx.arc(px, py, 14, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(px + sway, py, 14, 0, Math.PI * 2); ctx.fill();
           ctx.fillStyle = '#3a6a2a';
-          ctx.beginPath(); ctx.arc(px - 4, py - 4, 8, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(px - 4 + sway, py - 4, 8, 0, Math.PI * 2); ctx.fill();
           ctx.fillStyle = '#5a4a2a';
           ctx.fillRect(px - 2, py, 4, 10);
         }
@@ -170,12 +171,13 @@ function drawCity(ctx, cam, day) {
         ctx.fillStyle = CONFIG.COLORS.water;
         ctx.fillRect(x, y, T, T);
         ctx.strokeStyle = CONFIG.COLORS.waterShimmer;
-        ctx.lineWidth = 1;
-        const off = (performance.now() / 600) % T;
-        for (let i = 0; i < 4; i++) {
+        ctx.lineWidth = 1.5;
+        const off = (performance.now() / 500) % T;
+        for (let i = 0; i < 5; i++) {
           ctx.beginPath();
-          ctx.moveTo(x, y + i * 40 + (off % 40));
-          ctx.lineTo(x + T, y + i * 40 + (off % 40));
+          const yy = y + i * 32 + (off % 32);
+          ctx.moveTo(x, yy);
+          ctx.quadraticCurveTo(x + T/2, yy + 6, x + T, yy);
           ctx.stroke();
         }
       } else if (t === CONFIG.T_BEACH) {

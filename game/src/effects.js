@@ -10,27 +10,32 @@ window.SKIDMARKS = SKIDMARKS;
 function spawnParticles(x, y, color, n, speed) {
   speed = speed || 120;
   for (let i = 0; i < n; i++) {
-    const ang = rng() * Math.PI * 2;
-    const sp = speed * (0.3 + rng() * 0.7);
-    PARTICLES.push({ x, y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, life: 0.4 + rng() * 0.4, maxLife: 0.8, color, size: 2 + rng() * 3 });
+    const ang = Math.random() * Math.PI * 2;
+    const sp = speed * (0.3 + Math.random() * 0.7);
+    PARTICLES.push({ x, y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, life: 0.4 + Math.random() * 0.4, maxLife: 0.8, color, size: 2 + Math.random() * 3 });
   }
 }
 
 function spawnMuzzle(x, y, angle) {
   MUZZLES.push({ x, y, angle, life: 0.08 });
 }
+function spawnSmoke(x, y) {
+  if (Math.random() < 0.3) {
+    PARTICLES.push({ x: x + (Math.random()-0.5)*8, y: y + (Math.random()-0.5)*8, vx: (Math.random()-0.5)*40, vy: -60 - Math.random()*60, life: 0.8, maxLife: 0.8, color: 'rgba(120,120,120,0.6)', size: 3 + Math.random()*4 });
+  }
+}
 
 function spawnExplosion(x, y) {
   // fireball particles
   for (let i = 0; i < 40; i++) {
-    const ang = rng() * Math.PI * 2;
-    const sp = 60 + rng() * 200;
-    PARTICLES.push({ x, y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, life: 0.6 + rng() * 0.6, maxLife: 1.2, color: rng() < 0.5 ? '#ff6a00' : '#ffcc33', size: 3 + rng() * 5 });
+    const ang = Math.random() * Math.PI * 2;
+    const sp = 60 + Math.random() * 200;
+    PARTICLES.push({ x, y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, life: 0.6 + Math.random() * 0.6, maxLife: 1.2, color: Math.random() < 0.5 ? '#ff6a00' : '#ffcc33', size: 3 + Math.random() * 5 });
   }
   for (let i = 0; i < 20; i++) {
-    const ang = rng() * Math.PI * 2;
-    const sp = 30 + rng() * 80;
-    PARTICLES.push({ x, y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, life: 1.0 + rng() * 0.8, maxLife: 1.8, color: '#555', size: 4 + rng() * 6 });
+    const ang = Math.random() * Math.PI * 2;
+    const sp = 30 + Math.random() * 80;
+    PARTICLES.push({ x, y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, life: 1.0 + Math.random() * 0.8, maxLife: 1.8, color: '#555', size: 4 + Math.random() * 6 });
   }
   EXPLOSIONS.push({ x, y, life: 1.0, maxLife: 1.0, radius: 0 });
   screenShake(12);
@@ -108,6 +113,13 @@ function drawParticles(ctx, cam) {
     ctx.beginPath();
     ctx.arc(e.x - cam.x, e.y - cam.y, e.radius, 0, Math.PI * 2);
     ctx.fill();
+    // shockwave ring
+    ctx.globalAlpha = a * 0.8;
+    ctx.strokeStyle = 'rgba(255,220,120,0.9)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(e.x - cam.x, e.y - cam.y, e.radius * 1.1, 0, Math.PI * 2);
+    ctx.stroke();
   }
   ctx.globalAlpha = 1;
 }
@@ -115,6 +127,7 @@ function drawParticles(ctx, cam) {
 window.spawnParticles = spawnParticles;
 window.spawnMuzzle = spawnMuzzle;
 window.spawnExplosion = spawnExplosion;
+window.spawnSmoke = spawnSmoke;
 window.screenShake = screenShake;
 window.updateEffects = updateEffects;
 window.drawSkidMarks = drawSkidMarks;

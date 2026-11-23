@@ -1,6 +1,7 @@
 // game.js — main loop, state machine, drawing orchestration
 function wantedRaise(amount) {
   WANTED = Math.min(5, WANTED + (amount || 1));
+  if (window.setWantedFlash) window.setWantedFlash(0.6);
 }
 function getPlayerPos() {
   if (!PLAYER.onFoot && PLAYER.vehicleId >= 0) {
@@ -65,8 +66,14 @@ function updateBullets(dt) {
 function update(dt) {
   if (STATE === 'TITLE') return;
   if (STATE === 'PAUSED') return;
+  if (STATE === 'SHOP') { updateEffects(dt); return; }
   if (STATE === 'DEAD') {
     updatePlayer(dt);
+    updateEffects(dt);
+    return;
+  }
+  if (STATE === 'BUSTED') {
+    if (window.updateBusted) updateBusted(dt);
     updateEffects(dt);
     return;
   }
@@ -82,8 +89,14 @@ function update(dt) {
   updatePeds(dt);
   updateBullets(dt);
   updateEffects(dt);
+  if (window.updatePolice) updatePolice(dt);
+  if (window.updateBusted) updateBusted(dt);
   updateMissions(dt);
-  updateWanted(dt);
+  if (window.updateAudio) updateAudio(dt);
+  if (window.WANTED_FLASH && window.setWantedFlash) {
+    const f = window.WANTED_FLASH();
+    if (f > 0) window.setWantedFlash(Math.max(0, f - dt));
+  }
   const tp = getPlayerPos();
   CAMERA.x += (tp.x - CONFIG.CANVAS_W / 2 - CAMERA.x) * Math.min(1, dt * 6);
   CAMERA.y += (tp.y - CONFIG.CANVAS_H / 2 - CAMERA.y) * Math.min(1, dt * 6);
@@ -93,7 +106,6 @@ function update(dt) {
   MOUSE.worldY = MOUSE.y + CAMERA.y;
   spawnTrafficAround(CAMERA);
   spawnParkedAround(CAMERA);
-  spawnPoliceIfNeeded(CAMERA);
   DAY_TIME = (DAY_TIME + dt / CONFIG.DAY_LENGTH) % 1;
   if (SHOT_MODE) updateShot(dt);
   INPUT.justPressed = {};
@@ -161,6 +173,7 @@ function render() {
     drawSkidMarks(ctx, CAMERA);
     drawPeds(ctx, CAMERA);
     drawVehicles(ctx, CAMERA);
+    if (window.drawPoliceExtras) drawPoliceExtras(ctx, CAMERA);
     if (PLAYER.onFoot && STATE !== 'TITLE') drawPlayer(ctx, CAMERA);
     for (const b of BULLETS) {
       ctx.fillStyle = b.color;
@@ -186,8 +199,10 @@ function render() {
     drawHUD(ctx, CAMERA);
     if (STATE === 'PAUSED') drawPause(ctx);
     if (STATE === 'DEAD') drawDead(ctx);
+    if (STATE === 'BUSTED' && window.drawBustedOverlay) drawBustedOverlay(ctx);
     if (MISSION_COMPLETE_TIMER > 0) drawMissionComplete(ctx);
     if (STATE === 'MISSION_DIALOG') drawMissionDialog(ctx);
+    if (STATE === 'SHOP' && typeof drawShop === 'function') drawShop(ctx);
   }
 }
 

@@ -69,7 +69,7 @@ canvas.addEventListener('mousedown', (e) => {
 window.addEventListener('mouseup', () => { INPUT.mouseDown = false; MOUSE.down = false; });
 
 function startNewGame() {
-  CASH = 500; WANTED = 0; BULLETS.length = 0; PARTICLES.length = 0; SKIDMARKS.length = 0; PEDS.length = 0; VEHICLES.length = 0;
+  CASH = 500; WANTED = 0; BULLETS.length = 0; PARTICLES.length = 0; SKIDMARKS.length = 0; PEDS.length = 0; VEHICLES.length = 0; POLICE_OFFICERS.length = 0; ROADBLOCKS.length = 0; HELI = null;
   MISSION_INDEX = 0;
   const spawn = findPlayerSpawn();
   initPlayer(spawn.x, spawn.y);
@@ -81,7 +81,7 @@ function startNewGame() {
 function continueGame() {
   const ok = loadGame();
   if (!ok) { startNewGame(); return; }
-  VEHICLES.length = 0; PEDS.length = 0; BULLETS.length = 0;
+  VEHICLES.length = 0; PEDS.length = 0; BULLETS.length = 0; POLICE_OFFICERS.length = 0; ROADBLOCKS.length = 0; HELI = null;
   initMissions();
   startMission(MISSION_INDEX);
   STATE = 'MISSION_DIALOG';

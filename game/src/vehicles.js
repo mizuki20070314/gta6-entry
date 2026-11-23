@@ -6,6 +6,9 @@ const VEHICLE_TYPES = {
   van:     { name: 'Van',     maxSpeed: 180, accel: 130, brake: 220, handling: 2.0, color: '#8a8a90', w: 46, h: 22 },
   taxi:    { name: 'Taxi',    maxSpeed: 220, accel: 180, brake: 260, handling: 2.6, color: '#e8c547', w: 40, h: 20 },
   police:  { name: 'Cruiser', maxSpeed: 270, accel: 230, brake: 300, handling: 3.4, color: '#1f3a6b', w: 42, h: 20 },
+  swat:    { name: 'SWAT',    maxSpeed: 250, accel: 210, brake: 290, handling: 2.6, color: '#3a3a3a', w: 48, h: 24 },
+  tow:     { name: 'Tow',     maxSpeed: 170, accel: 120, brake: 200, handling: 2.0, color: '#f39c12', w: 52, h: 24 },
+  helicopter: { name: 'Heli', maxSpeed: 200, accel: 150, brake: 200, handling: 2.0, color: '#4a4a4a', w: 52, h: 16 },
 };
 window.VEHICLE_TYPES = VEHICLE_TYPES;
 
@@ -18,7 +21,7 @@ function spawnVehicle(type, x, y, angle, opts) {
   const t = VEHICLE_TYPES[type];
   const v = {
     id: VEHICLE_ID++, type, x, y, angle: angle || 0, vel: 0, health: 100,
-    driver: opts.driver || null, ai: !!opts.ai, isPolice: type === 'police',
+    driver: opts.driver || null, ai: !!opts.ai, isPolice: type === 'police' || type === 'swat' || type === 'helicopter',
     color: opts.color || t.color, w: t.w, h: t.h, maxSpeed: t.maxSpeed,
     accel: t.accel, brake: t.brake, handling: t.handling,
     turnDir: 0, aiDir: opts.aiDir || 0, aiTimer: 0, siren: !!opts.siren,
@@ -50,7 +53,7 @@ function updateVehicles(dt) {
     if (v.driver === 'player') {
       updatePlayerVehicle(v, dt);
     } else if (v.ai) {
-      if (v.isPolice) updatePoliceVehicle(v, dt);
+      if (v.isPolice) { /* handled in police.js */ }
       else updateTrafficVehicle(v, dt);
     } else {
       // parked: nothing

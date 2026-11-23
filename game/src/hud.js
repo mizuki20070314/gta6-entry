@@ -12,7 +12,17 @@ function drawHUD(ctx, cam) {
   ctx.fillStyle = '#fff';
   ctx.font = '12px sans-serif';
   ctx.fillText('HP ' + Math.ceil(PLAYER.health), 20, 30);
-  // armor placeholder (none)
+  // armor bar
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  ctx.fillRect(12, 40, 220, 14);
+  ctx.fillStyle = '#333';
+  ctx.fillRect(16, 42, 212, 10);
+  const ap = (PLAYER.armor || 0) / 100;
+  ctx.fillStyle = '#9bbcff';
+  ctx.fillRect(16, 42, 212 * ap, 10);
+  ctx.fillStyle = '#fff';
+  ctx.font = '10px sans-serif';
+  ctx.fillText('AR ' + Math.ceil(PLAYER.armor || 0), 20, 50);
   // cash top-right
   ctx.textAlign = 'right';
   ctx.fillStyle = 'rgba(0,0,0,0.5)';
@@ -25,9 +35,11 @@ function drawHUD(ctx, cam) {
   const starsX = W - 180, starsY = 46;
   ctx.fillStyle = 'rgba(0,0,0,0.5)';
   ctx.fillRect(starsX, starsY - 4, 168, 24);
+  const flash = (window.WANTED_FLASH ? window.WANTED_FLASH() : 0) > 0;
   for (let i = 0; i < 5; i++) {
     const filled = i < WANTED;
-    drawStar(ctx, starsX + 16 + i * 30, starsY + 8, 10, filled);
+    const r = flash && filled ? 13 : 10;
+    drawStar(ctx, starsX + 16 + i * 30, starsY + 8, r, filled);
   }
   // weapon indicator bottom-left above minimap
   ctx.fillStyle = 'rgba(0,0,0,0.5)';
@@ -42,20 +54,44 @@ function drawHUD(ctx, cam) {
 
   // mission banner center-bottom
   const step = (typeof currentStep === 'function') ? currentStep() : null;
-  if (step && STATE === 'PLAYING') {
+  const sb = (typeof window.SHOT_BANNER === 'function') ? window.SHOT_BANNER() : window.SHOT_BANNER;
+  const banner = sb || (step ? step.label : null);
+  if (banner && STATE === 'PLAYING') {
     ctx.fillStyle = 'rgba(0,0,0,0.55)';
     ctx.fillRect(W / 2 - 260, H - 60, 520, 40);
     ctx.fillStyle = '#f2e9d8';
     ctx.font = 'bold 14px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(step.label || '', W / 2, H - 36);
-    if (step.timer) {
+    ctx.fillText(banner, W / 2, H - 36);
+    if (step && step.timer) {
       ctx.font = '12px sans-serif';
       ctx.fillStyle = '#e8c547';
       ctx.fillText('Time: ' + Math.ceil(MISSION_TIMER), W / 2, H - 18);
     }
     ctx.textAlign = 'left';
   }
+  // mission target arrow at screen edge
+  const mm = (typeof getMissionMarker === 'function') ? getMissionMarker() : null;
+  if (mm && STATE === 'PLAYING') {
+    const cx = CONFIG.CANVAS_W / 2, cy = CONFIG.CANVAS_H / 2;
+    const sx = mm.x - CAMERA.x, sy = mm.y - CAMERA.y;
+    const margin = 40;
+    const onScreen = sx >= margin && sx <= CONFIG.CANVAS_W - margin && sy >= margin && sy <= CONFIG.CANVAS_H - margin;
+    if (!onScreen) {
+      const ang = Math.atan2(sy - cy, sx - cx);
+      const edgeX = Math.max(margin, Math.min(CONFIG.CANVAS_W - margin, cx + Math.cos(ang) * (CONFIG.CANVAS_W / 2 - margin)));
+      const edgeY = Math.max(margin, Math.min(CONFIG.CANVAS_H - margin, cy + Math.sin(ang) * (CONFIG.CANVAS_H / 2 - margin)));
+      ctx.save();
+      ctx.translate(edgeX, edgeY);
+      ctx.rotate(ang);
+      ctx.fillStyle = '#ff44aa';
+      ctx.beginPath();
+      ctx.moveTo(14, 0); ctx.lineTo(-8, -8); ctx.lineTo(-8, 8); ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
   // district name
   const dname = CITY.districtAt(PLAYER.onFoot ? PLAYER.x : (VEHICLES.find(v=>v.id===PLAYER.vehicleId)||PLAYER).x, PLAYER.onFoot ? PLAYER.y : (VEHICLES.find(v=>v.id===PLAYER.vehicleId)||PLAYER).y);
   ctx.fillStyle = 'rgba(0,0,0,0.4)';
@@ -123,11 +159,16 @@ function drawMinimap(ctx) {
   }
   // police blips
   if (WANTED > 0) {
-    ctx.fillStyle = '#ff3333';
     for (const v of VEHICLES) {
       if (v.isPolice) {
         const bx = mx + v.x * scaleX, by = my + v.y * scaleY;
-        ctx.fillRect(bx - 2, by - 2, 4, 4);
+        if (v.type === 'helicopter') {
+          ctx.fillStyle = '#ffff66';
+          ctx.beginPath(); ctx.arc(bx, by, 4, 0, Math.PI * 2); ctx.fill();
+        } else {
+          ctx.fillStyle = '#ff3333';
+          ctx.fillRect(bx - 2, by - 2, 4, 4);
+        }
       }
     }
   }
