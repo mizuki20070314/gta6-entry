@@ -1,4 +1,7 @@
-// config.js — central tuning constants for Sunset Coast
+// config.js - central tuning constants for Sunset Coast (Pacificora)
+// All magic numbers for the simulation live here so tuning is centralized.
+// Tile kinds, player and vehicle physics, wanted decay and day length are defined below.
+// Colors are kept in one palette block for easy theming of the coastal city.
 const CONFIG = {
     CANVAS_W: 1280,
     CANVAS_H: 720,

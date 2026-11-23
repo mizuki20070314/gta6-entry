@@ -1,4 +1,7 @@
-// hud.js — heads-up display and minimap
+// hud.js - heads-up display and minimap
+// Renders health, armor, cash, wanted stars and weapon readout.
+// The minimap shows roads, water, mission marker and police blips.
+// Target arrows guide the player toward off-screen objectives.
 function drawHUD(ctx, cam) {
     const W = CONFIG.CANVAS_W, H = CONFIG.CANVAS_H;
     // health

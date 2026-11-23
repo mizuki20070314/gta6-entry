@@ -1,4 +1,7 @@
-// save.js — localStorage persistence
+// save.js - localStorage persistence
+// Serializes player position, health, cash and mission progress.
+// Loads only when the saved seed matches the current world.
+// All storage access is guarded against exceptions.
 function saveGame() {
     try {
         const data = {

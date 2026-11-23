@@ -1,4 +1,7 @@
-// pedestrians.js — foot traffic and fleeing crowds
+// pedestrians.js - foot traffic and fleeing crowds
+// Pedestrians wander, flee from danger and can call the police.
+// Knocked peds recover and then run away from the player.
+// spawnPedsAround keeps a steady population near the camera.
 let PEDS = [];
 window.PEDS = PEDS;
 

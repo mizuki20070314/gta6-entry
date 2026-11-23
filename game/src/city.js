@@ -1,4 +1,7 @@
-// city.js — procedural grid city derived from a seed
+// city.js - procedural grid city derived from a seed (Pacificora)
+// The map is a 24x18 tile grid with roads every fourth tile.
+// Parks, water, beach, plazas and sidewalks are layered on top of buildings.
+// Solidity and road tests are exposed for movement and AI queries.
 function generateCity(seed) {
     const C = CONFIG;
     const rng = createRng(seed);
@@ -158,10 +161,10 @@ function drawCity(ctx, cam, day) {
             } else if (t === C.T_PARK) {
                 ctx.fillStyle = C.COLORS.park;
                 ctx.fillRect(x, y, T, T);
-                const seed = tx * 7 + ty * 13;
+                const seedv = tx * 7 + ty * 13;
                 for (let i = 0; i < 3; i++) {
-                    const px = x + 20 + ((seed * (i + 1) * 37) % (T - 40));
-                    const py = y + 20 + ((seed * (i + 2) * 53) % (T - 40));
+                    const px = x + 20 + ((seedv * (i + 1) * 37) % (T - 40));
+                    const py = y + 20 + ((seedv * (i + 2) * 53) % (T - 40));
                     const sway = Math.sin(performance.now() / 800 + tx + ty) * 3;
                     ctx.fillStyle = C.COLORS.parkDark;
                     ctx.beginPath(); ctx.arc(px + sway, py, 14, 0, Math.PI * 2); ctx.fill();

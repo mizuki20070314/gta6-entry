@@ -1,4 +1,7 @@
-// shots.js — deterministic screenshot scenes
+// shots.js - deterministic screenshot scenes
+// Four fixed scenes provide reproducible marketing screenshots.
+// Each scene sets up vehicles, police and lighting then freezes.
+// SHOT_READY is signaled on document.body for headless capture.
 let SHOT_BANNER = null;
 window.SHOT_BANNER = SHOT_BANNER;
 
@@ -12,6 +15,7 @@ function setupShot(name) {
     CASH = 500; WANTED = 0; BULLETS.length = 0; PARTICLES.length = 0; SKIDMARKS.length = 0; PEDS.length = 0; VEHICLES.length = 0;
     POLICE_OFFICERS.length = 0; ROADBLOCKS.length = 0; HELI = null;
     DAY_TIME = 0.35;
+    if (name === "city") DAY_TIME = 0.5;
     if (name === "night") DAY_TIME = 0.82;
     if (name === "chase") DAY_TIME = 0.72;
 

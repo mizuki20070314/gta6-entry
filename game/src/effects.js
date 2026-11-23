@@ -1,4 +1,7 @@
-// effects.js — particles, skids, explosions, screen shake, muzzle flashes
+// effects.js - particles, skids, explosions, screen shake, muzzle flashes
+// All transient visual feedback lives here: particles, skids and blasts.
+// Screen shake intensity decays over time for impact feel.
+// Nothing here affects simulation state beyond spawning visuals.
 let PARTICLES = [];
 let SKIDMARKS = [];
 let EXPLOSIONS = [];

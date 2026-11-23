@@ -1,5 +1,8 @@
-// rng.js — mulberry32 PRNG; the entire world derives from a single seed.
-function mulberry32(seed) {
+// rng.js - mulberry32 PRNG; the entire world derives from a single seed
+// A single seed drives the whole city layout, traffic and pedestrian placement.
+// Mulberry32 is small, fast and deterministic across browsers.
+// Helpers below wrap the raw generator with int/pick/range conveniences.
+function makeMulberry32(seed) {
     let state = seed >>> 0;
     return function next() {
         state |= 0;
@@ -11,7 +14,7 @@ function mulberry32(seed) {
 }
 
 function createRng(seed) {
-    return mulberry32((seed >>> 0) || 1);
+    return makeMulberry32((seed >>> 0) || 1);
 }
 
 function rngInt(rng, n) {

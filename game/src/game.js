@@ -1,4 +1,7 @@
-// game.js — core loop, state machine, rendering orchestration
+// game.js - core loop, state machine, rendering orchestration
+// Owns the main update and render pipeline for every frame.
+// State machine covers title, play, pause, dead, busted, dialog and shop.
+// Camera follow, lighting and headlight rendering are coordinated here.
 function wantedRaise(amount) {
     WANTED = Math.min(5, WANTED + (amount || 1));
     if (window.setWantedFlash) window.setWantedFlash(0.6);

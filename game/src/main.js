@@ -1,4 +1,7 @@
-// main.js — bootstrap and global state
+// main.js - bootstrap and global state
+// Parses seed and shot query parameters on load.
+// Wires input, mouse and canvas events to the game state.
+// Exposes globals and the onerror hook used by verification.
 const params = new URLSearchParams(location.search);
 const SEED = parseInt(params.get("seed") || "1", 10) || 1;
 const SHOT_NAME = params.get("shot");

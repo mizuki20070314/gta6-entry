@@ -1,4 +1,7 @@
-// audio.js — synthesized WebAudio, no external assets
+// audio.js - synthesized WebAudio, no external assets
+// Everything is generated at runtime with oscillators and gains.
+// Mute toggles all output and engine/siren layers follow game state.
+// No external audio files are required for the game to run.
 let AUDIO_CTX = null;
 let AUDIO_MUTED = false;
 let AUDIO_READY = false;

@@ -1,4 +1,7 @@
-// missions.js — story chain and mission runner
+// missions.js - story chain and mission runner (Marisol / Rex Costa)
+// Ten story missions chain from Marisol's cafe to Rex Costa's race.
+// Each mission is a list of typed steps with markers and rewards.
+// Progress persists through localStorage mission index.
 let MISSIONS = [];
 let MISSION_INDEX = 0;
 let CURRENT_MISSION = null;

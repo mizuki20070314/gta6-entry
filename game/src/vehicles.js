@@ -1,4 +1,7 @@
-// vehicles.js — vehicle definitions, traffic, and driving physics
+// vehicles.js - vehicle definitions, traffic and driving physics
+// Defines every drivable type from compacts to the police helicopter.
+// Handles player driving, traffic AI, collisions and spawn culling.
+// spawnTrafficAround keeps the world populated as the camera moves.
 const VEHICLE_TYPES = {
     compact: { name: "Compact", maxSpeed: 230, accel: 190, brake: 260, handling: 3.0, color: "#d96a5a", w: 34, h: 18 },
     sedan:   { name: "Sedan",   maxSpeed: 250, accel: 200, brake: 280, handling: 2.8, color: "#4a6fa5", w: 40, h: 20 },
@@ -274,7 +277,7 @@ function spawnParkedAround(cam) {
 
 function spawnPoliceIfNeeded(cam) {
     if (WANTED <= 0) {
-        for (let i = VEHICLES.length - 1; i >= 0; i++) if (VEHICLES[i].isPolice) VEHICLES.splice(i, 1);
+        for (let i = VEHICLES.length - 1; i >= 0; i--) if (!VEHICLES[i] || VEHICLES[i].isPolice) VEHICLES.splice(i, 1);
         return;
     }
     const police = VEHICLES.filter(v => v.isPolice).length;

@@ -1,4 +1,7 @@
-// menus.js — title, pause, overlays, shop
+// menus.js - title, pause, overlays, shop
+// Title screen offers new game and continue when a save exists.
+// Pause overlays a small map and control hints.
+// Shop sells ammo, armor and health near Costa Defense.
 let TITLE_BUTTONS = [];
 let PAUSE = false;
 

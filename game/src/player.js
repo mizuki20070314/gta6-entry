@@ -1,4 +1,7 @@
-// player.js — on-foot protagonist
+// player.js - on-foot protagonist of Sunset Coast
+// Tracks health, armor, weapon, ammo and vehicle occupancy.
+// Movement uses axis-separated collision against solid tiles.
+// Fists and pistol combat plus enter/exit vehicle handling live here.
 const PLAYER = {
     x: 0, y: 0, angle: 0, health: 100, armor: 0, weapon: "fists", ammo: 30,
     onFoot: true, vehicleId: -1, fireCd: 0, meleeCd: 0, deadTimer: 0,

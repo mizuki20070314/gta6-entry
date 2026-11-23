@@ -1,4 +1,7 @@
-// police.js — wanted level, dispatch, pursuit AI, busted
+// police.js - wanted level, dispatch, pursuit AI, busted
+// Wanted level drives cruisers, SWAT, helicopter and roadblocks.
+// Heat decays when no officer has line of sight on the player.
+// Busted triggers on close contact and respawns at Pacificora PD.
 const POLICE_OFFICERS = [];
 const ROADBLOCKS = [];
 let HELI = null;
@@ -31,7 +34,7 @@ function decayTimeForStar(s) {
 }
 
 function removePoliceAll() {
-    for (let i = VEHICLES.length - 1; i >= 0; i++) if (VEHICLES[i].isPolice) VEHICLES.splice(i, 1);
+    for (let i = VEHICLES.length - 1; i >= 0; i--) if (!VEHICLES[i] || VEHICLES[i].isPolice) VEHICLES.splice(i, 1);
     POLICE_OFFICERS.length = 0;
     ROADBLOCKS.length = 0;
     HELI = null;
