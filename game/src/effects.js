@@ -1,7 +1,6 @@
-// effects.js - particles, skids, explosions, screen shake, muzzle flashes
-// All transient visual feedback lives here: particles, skids and blasts.
-// Screen shake intensity decays over time for impact feel.
-// Nothing here affects simulation state beyond spawning visuals.
+// Short-lived particles, tire marks, flashes, and blasts communicate impact.
+// Effects stay separate from the world grid, so they never block a route.
+// Camera shake is a decaying envelope that the renderer samples each frame.
 let PARTICLES = [];
 let SKIDMARKS = [];
 let EXPLOSIONS = [];
@@ -11,119 +10,139 @@ window.PARTICLES = PARTICLES;
 window.SKIDMARKS = SKIDMARKS;
 
 function spawnParticles(x, y, color, n, speed) {
-    speed = speed || 120;
-    for (let i = 0; i < n; i++) {
-        const ang = Math.random() * Math.PI * 2;
-        const sp = speed * (0.3 + Math.random() * 0.7);
-        PARTICLES.push({ x, y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, life: 0.4 + Math.random() * 0.4, maxLife: 0.8, color, size: 2 + Math.random() * 3 });
-    }
+  const launchSpeed = speed || 120;
+  for (let index = 0; index < n; index++) {
+    const direction = Math.random() * Math.PI * 2;
+    const velocity = launchSpeed * (0.3 + Math.random() * 0.7);
+    PARTICLES.push({
+      x, y,
+      vx: Math.cos(direction) * velocity,
+      vy: Math.sin(direction) * velocity,
+      life: 0.4 + Math.random() * 0.4,
+      maxLife: 0.8,
+      color,
+      size: 2 + Math.random() * 3,
+    });
+  }
 }
 
 function spawnMuzzle(x, y, angle) {
-    MUZZLES.push({ x, y, angle, life: 0.08 });
+  MUZZLES.push({ x, y, angle, life: 0.08 });
 }
 
 function spawnSmoke(x, y) {
-    if (Math.random() < 0.3) {
-        PARTICLES.push({ x: x + (Math.random() - 0.5) * 8, y: y + (Math.random() - 0.5) * 8, vx: (Math.random() - 0.5) * 40, vy: -60 - Math.random() * 60, life: 0.8, maxLife: 0.8, color: "rgba(120,120,120,0.6)", size: 3 + Math.random() * 4 });
-    }
+  if (Math.random() >= 0.3) return;
+  PARTICLES.push({
+    x: x + (Math.random() - 0.5) * 8,
+    y: y + (Math.random() - 0.5) * 8,
+    vx: (Math.random() - 0.5) * 40,
+    vy: -60 - Math.random() * 60,
+    life: 0.8, maxLife: 0.8,
+    color: "rgba(120,120,120,0.6)", size: 3 + Math.random() * 4,
+  });
 }
 
 function spawnExplosion(x, y) {
-    for (let i = 0; i < 40; i++) {
-        const ang = Math.random() * Math.PI * 2;
-        const sp = 60 + Math.random() * 200;
-        PARTICLES.push({ x, y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, life: 0.6 + Math.random() * 0.6, maxLife: 1.2, color: Math.random() < 0.5 ? "#ff6a00" : "#ffcc33", size: 3 + Math.random() * 5 });
-    }
-    for (let i = 0; i < 20; i++) {
-        const ang = Math.random() * Math.PI * 2;
-        const sp = 30 + Math.random() * 80;
-        PARTICLES.push({ x, y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, life: 1.0 + Math.random() * 0.8, maxLife: 1.8, color: "#555", size: 4 + Math.random() * 6 });
-    }
-    EXPLOSIONS.push({ x, y, life: 1.0, maxLife: 1.0, radius: 0 });
-    screenShake(12);
+  for (let spark = 0; spark < 40; spark++) {
+    const direction = Math.random() * Math.PI * 2;
+    const velocity = 60 + Math.random() * 200;
+    PARTICLES.push({
+      x, y, vx: Math.cos(direction) * velocity, vy: Math.sin(direction) * velocity,
+      life: 0.6 + Math.random() * 0.6, maxLife: 1.2,
+      color: Math.random() < 0.5 ? "#ff6a00" : "#ffcc33", size: 3 + Math.random() * 5,
+    });
+  }
+  for (let puff = 0; puff < 20; puff++) {
+    const direction = Math.random() * Math.PI * 2;
+    const velocity = 30 + Math.random() * 80;
+    PARTICLES.push({
+      x, y, vx: Math.cos(direction) * velocity, vy: Math.sin(direction) * velocity,
+      life: 1 + Math.random() * 0.8, maxLife: 1.8,
+      color: "#555", size: 4 + Math.random() * 6,
+    });
+  }
+  EXPLOSIONS.push({ x, y, life: 1, maxLife: 1, radius: 0 });
+  screenShake(12);
 }
 
-function screenShake(mag) { SCREEN_SHAKE.t = 0.4; SCREEN_SHAKE.mag = Math.max(SCREEN_SHAKE.mag, mag); }
+function screenShake(mag) {
+  SCREEN_SHAKE.t = 0.4;
+  SCREEN_SHAKE.mag = Math.max(SCREEN_SHAKE.mag, mag);
+}
 
 function updateEffects(dt) {
-    for (let i = PARTICLES.length - 1; i >= 0; i--) {
-        const p = PARTICLES[i];
-        p.life -= dt;
-        p.x += p.vx * dt; p.y += p.vy * dt;
-        p.vx *= 0.94; p.vy *= 0.94;
-        if (p.life <= 0) PARTICLES.splice(i, 1);
-    }
-    for (let i = SKIDMARKS.length - 1; i >= 0; i--) {
-        SKIDMARKS[i].life -= dt;
-        if (SKIDMARKS[i].life <= 0) SKIDMARKS.splice(i, 1);
-    }
-    for (let i = EXPLOSIONS.length - 1; i >= 0; i--) {
-        const e = EXPLOSIONS[i];
-        e.life -= dt;
-        e.radius += dt * 120;
-        if (e.life <= 0) EXPLOSIONS.splice(i, 1);
-    }
-    for (let i = MUZZLES.length - 1; i >= 0; i--) {
-        MUZZLES[i].life -= dt;
-        if (MUZZLES[i].life <= 0) MUZZLES.splice(i, 1);
-    }
-    if (SCREEN_SHAKE.t > 0) {
-        SCREEN_SHAKE.t -= dt;
-        if (SCREEN_SHAKE.t <= 0) { SCREEN_SHAKE.t = 0; SCREEN_SHAKE.mag = 0; }
-    }
+  for (let index = PARTICLES.length - 1; index >= 0; index--) {
+    const particle = PARTICLES[index];
+    particle.life -= dt;
+    particle.x += particle.vx * dt;
+    particle.y += particle.vy * dt;
+    particle.vx *= 0.94;
+    particle.vy *= 0.94;
+    if (particle.life <= 0) PARTICLES.splice(index, 1);
+  }
+  for (let index = SKIDMARKS.length - 1; index >= 0; index--) {
+    SKIDMARKS[index].life -= dt;
+    if (SKIDMARKS[index].life <= 0) SKIDMARKS.splice(index, 1);
+  }
+  for (let index = EXPLOSIONS.length - 1; index >= 0; index--) {
+    const blast = EXPLOSIONS[index];
+    blast.life -= dt;
+    blast.radius += dt * 120;
+    if (blast.life <= 0) EXPLOSIONS.splice(index, 1);
+  }
+  for (let index = MUZZLES.length - 1; index >= 0; index--) {
+    MUZZLES[index].life -= dt;
+    if (MUZZLES[index].life <= 0) MUZZLES.splice(index, 1);
+  }
+  if (SCREEN_SHAKE.t > 0) {
+    SCREEN_SHAKE.t -= dt;
+    if (SCREEN_SHAKE.t <= 0) { SCREEN_SHAKE.t = 0; SCREEN_SHAKE.mag = 0; }
+  }
 }
 
 function drawSkidMarks(ctx, cam) {
-    for (const s of SKIDMARKS) {
-        const a = s.life / s.maxLife;
-        ctx.save();
-        ctx.translate(s.x - cam.x, s.y - cam.y);
-        ctx.rotate(s.angle);
-        ctx.fillStyle = "rgba(20,20,20," + (0.5 * a) + ")";
-        ctx.fillRect(-8, -2, 16, 4);
-        ctx.restore();
-    }
+  for (const mark of SKIDMARKS) {
+    const opacity = mark.life / mark.maxLife;
+    ctx.save();
+    ctx.translate(mark.x - cam.x, mark.y - cam.y);
+    ctx.rotate(mark.angle);
+    ctx.fillStyle = "rgba(20,20,20," + 0.5 * opacity + ")";
+    ctx.fillRect(-8, -2, 16, 4);
+    ctx.restore();
+  }
 }
 
 function drawParticles(ctx, cam) {
-    for (const p of PARTICLES) {
-        const a = p.life / p.maxLife;
-        ctx.globalAlpha = Math.max(0, a);
-        ctx.fillStyle = p.color;
-        ctx.beginPath();
-        ctx.arc(p.x - cam.x, p.y - cam.y, p.size * (0.5 + a * 0.5), 0, Math.PI * 2);
-        ctx.fill();
-    }
-    ctx.globalAlpha = 1;
-    for (const m of MUZZLES) {
-        const a = m.life / 0.08;
-        ctx.globalAlpha = a;
-        ctx.fillStyle = "#fff";
-        ctx.beginPath();
-        ctx.arc(m.x - cam.x, m.y - cam.y, 6, 0, Math.PI * 2);
-        ctx.fill();
-    }
-    ctx.globalAlpha = 1;
-    for (const e of EXPLOSIONS) {
-        const a = e.life / e.maxLife;
-        ctx.globalAlpha = a;
-        const g = ctx.createRadialGradient(e.x - cam.x, e.y - cam.y, 0, e.x - cam.x, e.y - cam.y, e.radius);
-        g.addColorStop(0, "rgba(255,200,80,0.9)");
-        g.addColorStop(0.5, "rgba(255,80,0,0.6)");
-        g.addColorStop(1, "rgba(80,80,80,0)");
-        ctx.fillStyle = g;
-        ctx.beginPath();
-        ctx.arc(e.x - cam.x, e.y - cam.y, e.radius, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.globalAlpha = a * 0.8;
-        ctx.strokeStyle = "rgba(255,220,120,0.9)";
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.arc(e.x - cam.x, e.y - cam.y, e.radius * 1.1, 0, Math.PI * 2);
-        ctx.stroke();
-    }
-    ctx.globalAlpha = 1;
+  for (const particle of PARTICLES) {
+    const opacity = Math.max(0, particle.life / particle.maxLife);
+    ctx.globalAlpha = opacity;
+    ctx.fillStyle = particle.color;
+    ctx.beginPath();
+    ctx.arc(particle.x - cam.x, particle.y - cam.y, particle.size * (0.5 + opacity * 0.5), 0, Math.PI * 2);
+    ctx.fill();
+  }
+  for (const flash of MUZZLES) {
+    ctx.globalAlpha = flash.life / 0.08;
+    ctx.fillStyle = "#fff";
+    ctx.beginPath(); ctx.arc(flash.x - cam.x, flash.y - cam.y, 6, 0, Math.PI * 2); ctx.fill();
+  }
+  for (const blast of EXPLOSIONS) {
+    const opacity = blast.life / blast.maxLife;
+    const centerX = blast.x - cam.x;
+    const centerY = blast.y - cam.y;
+    ctx.globalAlpha = opacity;
+    const glow = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, blast.radius);
+    glow.addColorStop(0, "rgba(255,200,80,0.9)");
+    glow.addColorStop(0.5, "rgba(255,80,0,0.6)");
+    glow.addColorStop(1, "rgba(80,80,80,0)");
+    ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.arc(centerX, centerY, blast.radius, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = opacity * 0.8;
+    ctx.strokeStyle = "rgba(255,220,120,0.9)";
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(centerX, centerY, blast.radius * 1.1, 0, Math.PI * 2); ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
 }
 
 window.spawnParticles = spawnParticles;

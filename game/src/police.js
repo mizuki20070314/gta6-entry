@@ -1,7 +1,6 @@
-// police.js - wanted level, dispatch, pursuit AI, busted
-// Wanted level drives cruisers, SWAT, helicopter and roadblocks.
-// Heat decays when no officer has line of sight on the player.
-// Busted triggers on close contact and respawns at Pacificora PD.
+// Wanted heat builds a response from patrol cars to officers, SWAT, and air support.
+// Sight lines and star-specific timers let a player break pursuit behind cover.
+// Roadblocks, foot officers, arrest contact, and the busted overlay live here.
 const POLICE_OFFICERS = [];
 const ROADBLOCKS = [];
 let HELI = null;
@@ -11,340 +10,387 @@ let WANTED_FLASH = 0;
 
 function pdPos() { return { x: CITY.worldW * 0.45, y: CITY.worldH * 0.4 }; }
 function hospitalPos() { return { x: CITY.worldW * 0.35, y: CITY.worldH * 0.45 }; }
-
 function wantedStars() { return Math.ceil(WANTED); }
 
 function hasLOS(x1, y1, x2, y2) {
-    const steps = 16;
-    for (let i = 0; i <= steps; i++) {
-        const t = i / steps;
-        const x = x1 + (x2 - x1) * t;
-        const y = y1 + (y2 - y1) * t;
-        if (CITY.isSolid(x, y)) return false;
-    }
-    return true;
+  for (let sample = 0; sample <= 16; sample++) {
+    const fraction = sample / 16;
+    const x = x1 + (x2 - x1) * fraction;
+    const y = y1 + (y2 - y1) * fraction;
+    if (CITY.isSolid(x, y)) return false;
+  }
+  return true;
 }
 
-function decayTimeForStar(s) {
-    if (s >= 5) return 20;
-    if (s === 4) return 16;
-    if (s === 3) return 13;
-    if (s === 2) return 10;
-    return 8;
+function decayTimeForStar(star) {
+  if (star >= 5) return 20;
+  if (star === 4) return 16;
+  if (star === 3) return 13;
+  if (star === 2) return 10;
+  return 8;
 }
 
 function removePoliceAll() {
-    for (let i = VEHICLES.length - 1; i >= 0; i--) if (!VEHICLES[i] || VEHICLES[i].isPolice) VEHICLES.splice(i, 1);
-    POLICE_OFFICERS.length = 0;
-    ROADBLOCKS.length = 0;
-    HELI = null;
+  for (let index = VEHICLES.length - 1; index >= 0; index--) {
+    if (!VEHICLES[index] || VEHICLES[index].isPolice) VEHICLES.splice(index, 1);
+  }
+  POLICE_OFFICERS.length = 0;
+  ROADBLOCKS.length = 0;
+  HELI = null;
 }
 
 function spawnPoliceCar(type, x, y, angle) {
-    const v = spawnVehicle(type, x, y, angle, { ai: true });
-    v.isPolice = true;
-    v.policeShootCd = 1;
-    v.speed = 0;
-    return v;
+  const patrol = spawnVehicle(type, x, y, angle, { ai: true });
+  patrol.isPolice = true;
+  patrol.policeShootCd = 1;
+  patrol.speed = 0;
+  return patrol;
 }
 
 function triggerBusted() {
-    if (STATE !== "PLAYING") return;
-    STATE = "BUSTED";
-    BUSTED_TIMER = 3;
-    CASH = Math.max(0, CASH - Math.floor(CASH / 2));
-    PLAYER.weapon = "fists"; PLAYER.ammo = 0; PLAYER.armor = 0;
-    WANTED = 0; WANTED_TIMER = 0;
-    removePoliceAll();
-    if (window.playExplosion) playExplosion();
+  if (STATE !== "PLAYING") return;
+  STATE = "BUSTED";
+  BUSTED_TIMER = 3;
+  CASH = Math.max(0, CASH - Math.floor(CASH / 2));
+  PLAYER.weapon = "fists";
+  PLAYER.ammo = 0;
+  PLAYER.armor = 0;
+  WANTED = 0;
+  WANTED_TIMER = 0;
+  removePoliceAll();
+  if (window.playExplosion) playExplosion();
 }
 
 function updatePolice(dt) {
-    if (WANTED <= 0) { removePoliceAll(); WANTED_TIMER = 0; return; }
-    const stars = wantedStars();
-    let desiredCruisers = (stars === 1) ? 1 : 2;
-    let desiredSwat = (stars >= 4) ? 1 : 0;
-    let wantHeli = (stars >= 5);
-    let wantRoadblocks = (stars >= 3);
+  if (WANTED <= 0) {
+    removePoliceAll();
+    WANTED_TIMER = 0;
+    return;
+  }
 
-    const pp = getPlayerPos();
-    let cruisers = VEHICLES.filter(v => v.isPolice && v.type === "police").length;
-    while (cruisers < desiredCruisers) {
-        const sp = pickRoadSpawnNear(CAMERA.x, CAMERA.y, 500, 900);
-        if (!sp) break;
-        spawnPoliceCar("police", sp.x, sp.y, 0);
-        cruisers++;
-    }
-    let swats = VEHICLES.filter(v => v.isPolice && v.type === "swat").length;
-    while (swats < desiredSwat) {
-        const sp = pickRoadSpawnNear(CAMERA.x, CAMERA.y, 500, 900);
-        if (!sp) break;
-        spawnPoliceCar("swat", sp.x, sp.y, 0);
-        swats++;
-    }
-    if (wantHeli && !HELI) {
-        const sp = pickRoadSpawnNear(CAMERA.x, CAMERA.y, 600, 900);
-        if (sp) {
-            HELI = spawnPoliceCar("helicopter", sp.x, sp.y, 0);
-            HELI.isHeli = true;
-        }
-    }
-    if (!wantHeli && HELI) {
-        const idx = VEHICLES.indexOf(HELI); if (idx >= 0) VEHICLES.splice(idx, 1);
-        HELI = null;
-    }
-    if (wantRoadblocks && ROADBLOCKS.length < 1) {
-        const ang = PLAYER.onFoot ? PLAYER.angle : (VEHICLES.find(v => v.id === PLAYER.vehicleId) || { angle: 0 }).angle;
-        const rx = pp.x + Math.cos(ang) * 400;
-        const ry = pp.y + Math.sin(ang) * 400;
-        let best = null, bestD = 1e9;
-        for (const s of CITY.roadSpawns) { const d = Math.hypot(s.x - rx, s.y - ry); if (d < bestD) { bestD = d; best = s; } }
-        if (best) ROADBLOCKS.push({ x: best.x, y: best.y, angle: ang, life: 60 });
-    }
-    if (!wantRoadblocks) ROADBLOCKS.length = 0;
-    for (let i = ROADBLOCKS.length - 1; i >= 0; i--) if (Math.hypot(ROADBLOCKS[i].x - pp.x, ROADBLOCKS[i].y - pp.y) > 1200) ROADBLOCKS.splice(i, 1);
+  const stars = wantedStars();
+  const cruiserGoal = stars === 1 ? 1 : 2;
+  const swatGoal = stars >= 4 ? 1 : 0;
+  const needsHelicopter = stars >= 5;
+  const needsRoadblock = stars >= 3;
+  const player = getPlayerPos();
 
-    for (const v of VEHICLES) {
-        if (!v.isPolice || v.type === "helicopter") continue;
-        const dx = pp.x - v.x, dy = pp.y - v.y;
-        const desired = Math.atan2(dy, dx);
-        let diff = desired - v.angle;
-        while (diff > Math.PI) diff -= Math.PI * 2;
-        while (diff < -Math.PI) diff += Math.PI * 2;
-        const turn = v.type === "swat" ? 2.6 : 3.5;
-        v.angle += Math.sign(diff) * Math.min(Math.abs(diff), turn * dt);
-        const dist = Math.hypot(dx, dy);
-        const targetSpeed = dist > 120 ? v.maxSpeed : v.maxSpeed * 0.5;
-        if ((v.speed || 0) < targetSpeed) v.speed = Math.min(targetSpeed, (v.speed || 0) + v.accel * dt);
-        else v.speed = Math.max(0, (v.speed || 0) - v.accel * dt);
-        const nx = v.x + Math.cos(v.angle) * v.speed * dt;
-        const ny = v.y + Math.sin(v.angle) * v.speed * dt;
-        if (!circleHitsSolid(nx, v.y, 14)) v.x = nx;
-        if (!circleHitsSolid(v.x, ny, 14)) v.y = ny;
-        if (dist < 35 && !PLAYER.onFoot) {
-            const pv = VEHICLES.find(x => x.id === PLAYER.vehicleId);
-            if (pv) pv.health -= 5 * dt;
-        }
-        v.policeShootCd = (v.policeShootCd || 0) - dt;
-        if (dist < 450 && v.policeShootCd <= 0 && hasLOS(v.x, v.y, pp.x, pp.y)) {
-            v.policeShootCd = 0.9;
-            const bx = v.x + Math.cos(v.angle) * 24;
-            const by = v.y + Math.sin(v.angle) * 24;
-            BULLETS.push({ x: bx, y: by, vx: Math.cos(v.angle) * 520, vy: Math.sin(v.angle) * 520, life: 1.4, damage: 10, owner: "police", color: "#ff6666" });
-            if (window.playGunshot) playGunshot();
-        }
-    }
-    if (HELI) {
-        const h = HELI;
-        const d = Math.hypot(h.x - pp.x, h.y - pp.y);
-        const desiredR = 220;
-        const ang = Math.atan2(h.y - pp.y, h.x - pp.x);
-        const targetX = pp.x + Math.cos(ang + 0.02) * desiredR;
-        const targetY = pp.y + Math.sin(ang + 0.02) * desiredR;
-        const dx = targetX - h.x, dy = targetY - h.y;
-        const da = Math.atan2(dy, dx);
-        h.angle += (da - h.angle) * 2 * dt;
-        h.speed = Math.min(h.maxSpeed, (h.speed || 0) + h.accel * dt);
-        h.x += Math.cos(h.angle) * h.speed * dt;
-        h.y += Math.sin(h.angle) * h.speed * dt;
-    }
+  let cruisers = VEHICLES.filter((vehicle) => vehicle.isPolice && vehicle.type === "police").length;
+  while (cruisers < cruiserGoal) {
+    const road = pickRoadSpawnNear(CAMERA.x, CAMERA.y, 500, 900);
+    if (!road) break;
+    spawnPoliceCar("police", road.x, road.y, 0);
+    cruisers++;
+  }
+  let swatUnits = VEHICLES.filter((vehicle) => vehicle.isPolice && vehicle.type === "swat").length;
+  while (swatUnits < swatGoal) {
+    const road = pickRoadSpawnNear(CAMERA.x, CAMERA.y, 500, 900);
+    if (!road) break;
+    spawnPoliceCar("swat", road.x, road.y, 0);
+    swatUnits++;
+  }
 
-    if (POLICE_OFFICERS.length < stars) {
-        for (const v of VEHICLES) {
-            if (!v.isPolice || v.type === "helicopter") continue;
-            const d = Math.hypot(v.x - pp.x, v.y - pp.y);
-            if (d < 250 && POLICE_OFFICERS.length < stars) {
-                if (Math.random() < 0.02) {
-                    POLICE_OFFICERS.push({ x: v.x, y: v.y, angle: 0, health: 60, shootCd: 1, speed: 110 });
-                }
-            }
-        }
+  if (needsHelicopter && !HELI) {
+    const road = pickRoadSpawnNear(CAMERA.x, CAMERA.y, 600, 900);
+    if (road) {
+      HELI = spawnPoliceCar("helicopter", road.x, road.y, 0);
+      HELI.isHeli = true;
     }
-    for (let i = POLICE_OFFICERS.length - 1; i >= 0; i--) {
-        const o = POLICE_OFFICERS[i];
-        if (o.health <= 0) { POLICE_OFFICERS.splice(i, 1); continue; }
-        const dx = pp.x - o.x, dy = pp.y - o.y;
-        const ang = Math.atan2(dy, dx);
-        o.angle = ang;
-        const dist = Math.hypot(dx, dy);
-        if (dist > 50) { o.x += Math.cos(ang) * o.speed * dt; o.y += Math.sin(ang) * o.speed * dt; }
-        o.shootCd -= dt;
-        if (dist < 500 && o.shootCd <= 0 && hasLOS(o.x, o.y, pp.x, pp.y)) {
-            o.shootCd = 0.9;
-            const bx = o.x + Math.cos(ang) * 16, by = o.y + Math.sin(ang) * 16;
-            BULLETS.push({ x: bx, y: by, vx: Math.cos(ang) * 580, vy: Math.sin(ang) * 580, life: 1.3, damage: 12, owner: "police", color: "#ff6666" });
-            if (window.playGunshot) playGunshot();
-        }
+  } else if (!needsHelicopter && HELI) {
+    const oldHeliIndex = VEHICLES.indexOf(HELI);
+    if (oldHeliIndex >= 0) VEHICLES.splice(oldHeliIndex, 1);
+    HELI = null;
+  }
+
+  if (needsRoadblock && ROADBLOCKS.length < 1) {
+    const heading = PLAYER.onFoot
+      ? PLAYER.angle
+      : (VEHICLES.find((vehicle) => vehicle.id === PLAYER.vehicleId) || { angle: 0 }).angle;
+    const interceptX = player.x + Math.cos(heading) * 400;
+    const interceptY = player.y + Math.sin(heading) * 400;
+    let closestRoad = null;
+    let closestGap = Infinity;
+    for (const road of CITY.roadSpawns) {
+      const gap = Math.hypot(road.x - interceptX, road.y - interceptY);
+      if (gap < closestGap) { closestRoad = road; closestGap = gap; }
     }
-    for (let i = BULLETS.length - 1; i >= 0; i--) {
-        const b = BULLETS[i];
-        if (b.owner !== "player") continue;
-        for (const o of POLICE_OFFICERS) {
-            if (Math.hypot(o.x - b.x, o.y - b.y) < 10) {
-                o.health -= b.damage;
-                BULLETS.splice(i, 1);
-                spawnParticles(b.x, b.y, "#f00", 4);
-                break;
-            }
-        }
+    if (closestRoad) ROADBLOCKS.push({ x: closestRoad.x, y: closestRoad.y, angle: heading, life: 60 });
+  }
+  if (!needsRoadblock) ROADBLOCKS.length = 0;
+  for (let index = ROADBLOCKS.length - 1; index >= 0; index--) {
+    if (Math.hypot(ROADBLOCKS[index].x - player.x, ROADBLOCKS[index].y - player.y) > 1200) {
+      ROADBLOCKS.splice(index, 1);
+    }
+  }
+
+  pursueOnFootAndInCars(dt, player);
+  if (HELI) circleThePlayer(dt, player);
+  enlistOfficers(player, stars);
+  moveOfficers(dt, player);
+  resolveOfficerHits();
+
+  const spotted = canSeePlayer(player);
+  if (spotted) WANTED_TIMER = 0;
+  else {
+    WANTED_TIMER += dt;
+    if (WANTED_TIMER >= decayTimeForStar(stars)) {
+      WANTED = Math.max(0, WANTED - 1);
+      WANTED_TIMER = 0;
+      if (WANTED <= 0) removePoliceAll();
+    }
+  }
+
+  if (checkBusted(player)) return;
+  slowAtRoadblocks();
+}
+
+function pursueOnFootAndInCars(dt, player) {
+  for (const patrol of VEHICLES) {
+    if (!patrol.isPolice || patrol.type === "helicopter") continue;
+    const dx = player.x - patrol.x;
+    const dy = player.y - patrol.y;
+    const targetAngle = Math.atan2(dy, dx);
+    let difference = targetAngle - patrol.angle;
+    while (difference > Math.PI) difference -= Math.PI * 2;
+    while (difference < -Math.PI) difference += Math.PI * 2;
+    const turnRate = patrol.type === "swat" ? 2.6 : 3.5;
+    patrol.angle += Math.sign(difference) * Math.min(Math.abs(difference), turnRate * dt);
+    const distance = Math.hypot(dx, dy);
+    const desiredSpeed = distance > 120 ? patrol.maxSpeed : patrol.maxSpeed * 0.5;
+    if ((patrol.speed || 0) < desiredSpeed) patrol.speed = Math.min(desiredSpeed, (patrol.speed || 0) + patrol.accel * dt);
+    else patrol.speed = Math.max(0, (patrol.speed || 0) - patrol.accel * dt);
+
+    const nextX = patrol.x + Math.cos(patrol.angle) * patrol.speed * dt;
+    const nextY = patrol.y + Math.sin(patrol.angle) * patrol.speed * dt;
+    if (!circleHitsSolid(nextX, patrol.y, 14)) patrol.x = nextX;
+    if (!circleHitsSolid(patrol.x, nextY, 14)) patrol.y = nextY;
+    if (distance < 35 && !PLAYER.onFoot) {
+      const playerRide = VEHICLES.find((vehicle) => vehicle.id === PLAYER.vehicleId);
+      if (playerRide) playerRide.health -= 5 * dt;
     }
 
-    let seen = false;
-    for (const v of VEHICLES) {
-        if (!v.isPolice) continue;
-        const d = Math.hypot(v.x - pp.x, v.y - pp.y);
-        if (d < 700 && hasLOS(v.x, v.y, pp.x, pp.y)) { seen = true; break; }
+    patrol.policeShootCd = (patrol.policeShootCd || 0) - dt;
+    if (distance < 450 && patrol.policeShootCd <= 0 && hasLOS(patrol.x, patrol.y, player.x, player.y)) {
+      patrol.policeShootCd = 0.9;
+      BULLETS.push({
+        x: patrol.x + Math.cos(patrol.angle) * 24,
+        y: patrol.y + Math.sin(patrol.angle) * 24,
+        vx: Math.cos(patrol.angle) * 520, vy: Math.sin(patrol.angle) * 520,
+        life: 1.4, damage: 10, owner: "police", color: "#ff6666",
+      });
+      if (window.playGunshot) playGunshot();
     }
-    for (const o of POLICE_OFFICERS) {
-        const d = Math.hypot(o.x - pp.x, o.y - pp.y);
-        if (d < 600 && hasLOS(o.x, o.y, pp.x, pp.y)) { seen = true; break; }
-    }
-    if (HELI) {
-        const d = Math.hypot(HELI.x - pp.x, HELI.y - pp.y);
-        if (d < 320) seen = true;
-    }
+  }
+}
 
-    if (seen) {
-        WANTED_TIMER = 0;
-    } else {
-        WANTED_TIMER += dt;
-        const thr = decayTimeForStar(stars);
-        if (WANTED_TIMER >= thr) {
-            WANTED = Math.max(0, WANTED - 1);
-            WANTED_TIMER = 0;
-            if (WANTED <= 0) removePoliceAll();
-        }
-    }
+function circleThePlayer(dt, player) {
+  const heli = HELI;
+  const angle = Math.atan2(heli.y - player.y, heli.x - player.x);
+  const orbitX = player.x + Math.cos(angle + 0.02) * 220;
+  const orbitY = player.y + Math.sin(angle + 0.02) * 220;
+  const toward = Math.atan2(orbitY - heli.y, orbitX - heli.x);
+  heli.angle += (toward - heli.angle) * 2 * dt;
+  heli.speed = Math.min(heli.maxSpeed, (heli.speed || 0) + heli.accel * dt);
+  heli.x += Math.cos(heli.angle) * heli.speed * dt;
+  heli.y += Math.sin(heli.angle) * heli.speed * dt;
+}
 
-    if (PLAYER.onFoot) {
-        for (const v of VEHICLES) {
-            if (v.isPolice && Math.hypot(v.x - PLAYER.x, v.y - PLAYER.y) < 42) { triggerBusted(); return; }
-        }
-        for (const o of POLICE_OFFICERS) {
-            if (Math.hypot(o.x - PLAYER.x, o.y - PLAYER.y) < 42) { triggerBusted(); return; }
-        }
-    } else {
-        const pv = VEHICLES.find(x => x.id === PLAYER.vehicleId);
-        if (pv) {
-            const spd = Math.abs(pv.speed || 0);
-            if (spd < 20) {
-                let nearC = 0;
-                for (const v of VEHICLES) if (v.isPolice && Math.hypot(v.x - pv.x, v.y - pv.y) < 130) nearC++;
-                if (nearC >= 3) { triggerBusted(); return; }
-            }
-        }
+function enlistOfficers(player, stars) {
+  if (POLICE_OFFICERS.length >= stars) return;
+  for (const patrol of VEHICLES) {
+    if (!patrol.isPolice || patrol.type === "helicopter") continue;
+    const distance = Math.hypot(patrol.x - player.x, patrol.y - player.y);
+    if (distance < 250 && POLICE_OFFICERS.length < stars && Math.random() < 0.02) {
+      POLICE_OFFICERS.push({ x: patrol.x, y: patrol.y, angle: 0, health: 60, shootCd: 1, speed: 110 });
     }
-    if (!PLAYER.onFoot) {
-        const pv = VEHICLES.find(x => x.id === PLAYER.vehicleId);
-        if (pv) {
-            for (const rb of ROADBLOCKS) {
-                if (Math.hypot(pv.x - rb.x, pv.y - rb.y) < 60) {
-                    pv.speed *= 0.92;
-                }
-            }
-        }
+  }
+}
+
+function moveOfficers(dt, player) {
+  for (let index = POLICE_OFFICERS.length - 1; index >= 0; index--) {
+    const officer = POLICE_OFFICERS[index];
+    if (officer.health <= 0) { POLICE_OFFICERS.splice(index, 1); continue; }
+    const dx = player.x - officer.x;
+    const dy = player.y - officer.y;
+    const direction = Math.atan2(dy, dx);
+    officer.angle = direction;
+    const distance = Math.hypot(dx, dy);
+    if (distance > 50) {
+      officer.x += Math.cos(direction) * officer.speed * dt;
+      officer.y += Math.sin(direction) * officer.speed * dt;
     }
+    officer.shootCd -= dt;
+    if (distance < 500 && officer.shootCd <= 0 && hasLOS(officer.x, officer.y, player.x, player.y)) {
+      officer.shootCd = 0.9;
+      BULLETS.push({
+        x: officer.x + Math.cos(direction) * 16,
+        y: officer.y + Math.sin(direction) * 16,
+        vx: Math.cos(direction) * 580, vy: Math.sin(direction) * 580,
+        life: 1.3, damage: 12, owner: "police", color: "#ff6666",
+      });
+      if (window.playGunshot) playGunshot();
+    }
+  }
+}
+
+function resolveOfficerHits() {
+  for (let bulletIndex = BULLETS.length - 1; bulletIndex >= 0; bulletIndex--) {
+    const bullet = BULLETS[bulletIndex];
+    if (bullet.owner !== "player") continue;
+    for (const officer of POLICE_OFFICERS) {
+      if (Math.hypot(officer.x - bullet.x, officer.y - bullet.y) >= 10) continue;
+      officer.health -= bullet.damage;
+      BULLETS.splice(bulletIndex, 1);
+      spawnParticles(bullet.x, bullet.y, "#f00", 4);
+      break;
+    }
+  }
+}
+
+function canSeePlayer(player) {
+  for (const patrol of VEHICLES) {
+    if (!patrol.isPolice) continue;
+    if (Math.hypot(patrol.x - player.x, patrol.y - player.y) < 700 && hasLOS(patrol.x, patrol.y, player.x, player.y)) return true;
+  }
+  for (const officer of POLICE_OFFICERS) {
+    if (Math.hypot(officer.x - player.x, officer.y - player.y) < 600 && hasLOS(officer.x, officer.y, player.x, player.y)) return true;
+  }
+  return !!HELI && Math.hypot(HELI.x - player.x, HELI.y - player.y) < 320;
+}
+
+function checkBusted(player) {
+  if (PLAYER.onFoot) {
+    for (const patrol of VEHICLES) {
+      if (patrol.isPolice && Math.hypot(patrol.x - PLAYER.x, patrol.y - PLAYER.y) < 42) {
+        triggerBusted();
+        return true;
+      }
+    }
+    for (const officer of POLICE_OFFICERS) {
+      if (Math.hypot(officer.x - PLAYER.x, officer.y - PLAYER.y) < 42) {
+        triggerBusted();
+        return true;
+      }
+    }
+    return false;
+  }
+
+  const ride = VEHICLES.find((vehicle) => vehicle.id === PLAYER.vehicleId);
+  if (!ride || Math.abs(ride.speed || 0) >= 20) return false;
+  let nearbyCruisers = 0;
+  for (const patrol of VEHICLES) {
+    if (patrol.isPolice && Math.hypot(patrol.x - ride.x, patrol.y - ride.y) < 130) nearbyCruisers++;
+  }
+  if (nearbyCruisers < 3) return false;
+  triggerBusted();
+  return true;
+}
+
+function slowAtRoadblocks() {
+  if (PLAYER.onFoot) return;
+  const ride = VEHICLES.find((vehicle) => vehicle.id === PLAYER.vehicleId);
+  if (!ride) return;
+  for (const block of ROADBLOCKS) {
+    if (Math.hypot(ride.x - block.x, ride.y - block.y) < 60) ride.speed *= 0.92;
+  }
 }
 
 function updateBusted(dt) {
-    if (STATE !== "BUSTED") return;
-    BUSTED_TIMER -= dt;
-    if (BUSTED_TIMER <= 0) {
-        const p = pdPos();
-        initPlayer(p.x, p.y);
-        STATE = "PLAYING";
-        WANTED = 0;
-        removePoliceAll();
-    }
+  if (STATE !== "BUSTED") return;
+  BUSTED_TIMER -= dt;
+  if (BUSTED_TIMER <= 0) {
+    const station = pdPos();
+    initPlayer(station.x, station.y);
+    STATE = "PLAYING";
+    WANTED = 0;
+    removePoliceAll();
+  }
 }
 
 function drawPoliceExtras(ctx, cam) {
-    for (const rb of ROADBLOCKS) {
-        ctx.save();
-        ctx.translate(rb.x - cam.x, rb.y - cam.y);
-        ctx.rotate(rb.angle);
-        for (const off of [-1, 1]) {
-            ctx.save();
-            ctx.translate(0, off * 18);
-            ctx.rotate(off * 0.6);
-            ctx.fillStyle = "#1a3a6a";
-            ctx.fillRect(-23, -11, 46, 22);
-            ctx.fillStyle = (performance.now() / 200 % 2 < 1) ? "#ff3333" : "#3366ff";
-            ctx.fillRect(-6, -14, 12, 3);
-            ctx.restore();
-        }
-        ctx.fillStyle = "#ffcc33";
-        for (let i = -3; i <= 3; i++) {
-            ctx.beginPath();
-            ctx.moveTo(i * 14 - 4, 30);
-            ctx.lineTo(i * 14, 40);
-            ctx.lineTo(i * 14 + 4, 30);
-            ctx.closePath();
-            ctx.fill();
-        }
-        ctx.restore();
+  for (const block of ROADBLOCKS) {
+    ctx.save();
+    ctx.translate(block.x - cam.x, block.y - cam.y);
+    ctx.rotate(block.angle);
+    for (const side of [-1, 1]) {
+      ctx.save();
+      ctx.translate(0, side * 18);
+      ctx.rotate(side * 0.6);
+      ctx.fillStyle = "#1a3a6a"; ctx.fillRect(-23, -11, 46, 22);
+      ctx.fillStyle = performance.now() / 200 % 2 < 1 ? "#ff3333" : "#3366ff";
+      ctx.fillRect(-6, -14, 12, 3);
+      ctx.restore();
     }
-    for (const o of POLICE_OFFICERS) {
-        const sx = o.x - cam.x, sy = o.y - cam.y;
-        ctx.fillStyle = "rgba(0,0,0,0.3)";
-        ctx.beginPath(); ctx.ellipse(sx, sy + 6, 8, 4, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.save();
-        ctx.translate(sx, sy);
-        ctx.rotate(o.angle);
-        ctx.fillStyle = "#1a3a6a";
-        ctx.fillRect(-5, -3, 10, 8);
-        ctx.fillStyle = "#f0c8a0";
-        ctx.beginPath(); ctx.arc(4, 0, 4, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = "#333";
-        ctx.fillRect(6, -1, 8, 2);
-        ctx.restore();
+    ctx.fillStyle = "#ffcc33";
+    for (let cone = -3; cone <= 3; cone++) {
+      ctx.beginPath();
+      ctx.moveTo(cone * 14 - 4, 30); ctx.lineTo(cone * 14, 40); ctx.lineTo(cone * 14 + 4, 30);
+      ctx.closePath(); ctx.fill();
     }
-    if (HELI) {
-        const h = HELI;
-        const sx = h.x - cam.x, sy = h.y - cam.y;
-        ctx.fillStyle = "rgba(0,0,0,0.25)";
-        ctx.beginPath(); ctx.ellipse(sx, sy + 4, 28, 10, h.angle, 0, Math.PI * 2); ctx.fill();
-        ctx.save();
-        ctx.translate(sx, sy);
-        ctx.rotate(h.angle);
-        ctx.fillStyle = "#4a4a4a";
-        ctx.fillRect(-30, -9, 60, 18);
-        ctx.fillStyle = "#888";
-        ctx.fillRect(-4, -18, 8, 36);
-        ctx.restore();
-        const pp = getPlayerPos();
-        const cx = pp.x - cam.x, cy = pp.y - cam.y;
-        ctx.save();
-        ctx.globalCompositeOperation = "lighter";
-        const g = ctx.createRadialGradient(cx, cy, 10, cx, cy, 140);
-        g.addColorStop(0, "rgba(255,255,220,0.35)");
-        g.addColorStop(1, "rgba(255,255,220,0)");
-        ctx.fillStyle = g;
-        ctx.beginPath(); ctx.arc(cx, cy, 140, 0, Math.PI * 2); ctx.fill();
-        ctx.globalCompositeOperation = "source-over";
-        ctx.restore();
-    }
+    ctx.restore();
+  }
+
+  for (const officer of POLICE_OFFICERS) {
+    const screenX = officer.x - cam.x;
+    const screenY = officer.y - cam.y;
+    ctx.fillStyle = "rgba(0,0,0,0.3)";
+    ctx.beginPath(); ctx.ellipse(screenX, screenY + 6, 8, 4, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.save();
+    ctx.translate(screenX, screenY);
+    ctx.rotate(officer.angle);
+    ctx.fillStyle = "#1a3a6a"; ctx.fillRect(-5, -3, 10, 8);
+    ctx.fillStyle = "#f0c8a0";
+    ctx.beginPath(); ctx.arc(4, 0, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#333"; ctx.fillRect(6, -1, 8, 2);
+    ctx.restore();
+  }
+
+  if (!HELI) return;
+  const heli = HELI;
+  const screenX = heli.x - cam.x;
+  const screenY = heli.y - cam.y;
+  ctx.fillStyle = "rgba(0,0,0,0.25)";
+  ctx.beginPath(); ctx.ellipse(screenX, screenY + 4, 28, 10, heli.angle, 0, Math.PI * 2); ctx.fill();
+  ctx.save();
+  ctx.translate(screenX, screenY);
+  ctx.rotate(heli.angle);
+  ctx.fillStyle = "#4a4a4a"; ctx.fillRect(-30, -9, 60, 18);
+  ctx.fillStyle = "#888"; ctx.fillRect(-4, -18, 8, 36);
+  ctx.restore();
+
+  const player = getPlayerPos();
+  const lightX = player.x - cam.x;
+  const lightY = player.y - cam.y;
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  const beam = ctx.createRadialGradient(lightX, lightY, 10, lightX, lightY, 140);
+  beam.addColorStop(0, "rgba(255,255,220,0.35)");
+  beam.addColorStop(1, "rgba(255,255,220,0)");
+  ctx.fillStyle = beam;
+  ctx.beginPath(); ctx.arc(lightX, lightY, 140, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
 }
 
 function drawBustedOverlay(ctx) {
-    const W = CONFIG.CANVAS_W, H = CONFIG.CANVAS_H;
-    ctx.fillStyle = "rgba(0,0,20,0.75)";
-    ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = "#ff5555";
-    ctx.font = "bold 64px sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText("BUSTED", W / 2, H / 2);
-    ctx.fillStyle = "#f2e9d8";
-    ctx.font = "20px sans-serif";
-    ctx.fillText("Respawning at Pacificora PD...", W / 2, H / 2 + 40);
-    ctx.textAlign = "left";
+  const width = CONFIG.CANVAS_W;
+  const height = CONFIG.CANVAS_H;
+  ctx.fillStyle = "rgba(0,0,20,0.75)";
+  ctx.fillRect(0, 0, width, height);
+  ctx.fillStyle = "#ff5555";
+  ctx.font = "bold 64px sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText("BUSTED", width / 2, height / 2);
+  ctx.fillStyle = "#f2e9d8";
+  ctx.font = "20px sans-serif";
+  ctx.fillText("Respawning at Pacificora PD...", width / 2, height / 2 + 40);
+  ctx.textAlign = "left";
 }
 
 window.POLICE_OFFICERS = POLICE_OFFICERS;
 window.ROADBLOCKS = ROADBLOCKS;
 window.HELI = () => HELI;
 window.BUSTED_TIMER = () => BUSTED_TIMER;
-window.setBustedTimer = (t) => { BUSTED_TIMER = t; };
+window.setBustedTimer = (time) => { BUSTED_TIMER = time; };
 window.updatePolice = updatePolice;
 window.updateBusted = updateBusted;
 window.drawPoliceExtras = drawPoliceExtras;
@@ -353,7 +399,7 @@ window.triggerBusted = triggerBusted;
 window.removePoliceAll = removePoliceAll;
 window.WANTED_TIMER = () => WANTED_TIMER;
 window.WANTED_FLASH = () => WANTED_FLASH;
-window.setWantedFlash = (t) => { WANTED_FLASH = t; };
+window.setWantedFlash = (time) => { WANTED_FLASH = time; };
 window.pdPos = pdPos;
 window.hospitalPos = hospitalPos;
 window.wantedStars = wantedStars;

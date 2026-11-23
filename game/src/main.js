@@ -1,11 +1,9 @@
-// main.js - bootstrap and global state
-// Parses seed and shot query parameters on load.
-// Wires input, mouse and canvas events to the game state.
-// Exposes globals and the onerror hook used by verification.
+// This last classic script binds browser input and publishes the shared runtime.
+// Query parameters choose a world seed or one of the staged capture scenes.
+// Runtime errors are copied onto the page so a headless browser can report them.
 const params = new URLSearchParams(location.search);
 const SEED = parseInt(params.get("seed") || "1", 10) || 1;
 const SHOT_NAME = params.get("shot");
-
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 canvas.width = CONFIG.CANVAS_W;
@@ -30,106 +28,128 @@ window.MOUSE = MOUSE;
 window.CAMERA = CAMERA;
 window.BULLETS = BULLETS;
 
-// surface runtime errors to the DOM for headless verification
 window.onerror = function (msg, src, line, col, err) {
-    const full = String(msg) + " @ " + (src || "?") + ":" + (line || "?") + ":" + (col || "?");
-    try { document.body.dataset.error = full; } catch (e) {}
-    try { document.title = "ERROR: " + msg; } catch (e) {}
-    return false;
+  const summary = String(msg) + " @ " + (src || "?") + ":" + (line || "?") + ":" + (col || "?");
+  try { document.body.dataset.error = summary; } catch (error) {}
+  try { document.title = "ERROR: " + msg; } catch (error) {}
+  return false;
 };
-window.addEventListener("unhandledrejection", function (e) {
-    const msg = (e.reason && e.reason.message) ? e.reason.message : String(e.reason);
-    try { document.body.dataset.error = msg; } catch (er) {}
+window.addEventListener("unhandledrejection", function (event) {
+  const reason = event.reason;
+  const summary = reason && reason.message ? reason.message : String(reason);
+  try { document.body.dataset.error = summary; } catch (error) {}
 });
 
 const CITY = generateCity(SEED);
 window.CITY = CITY;
 initMissions();
-
 CAMERA.x = CITY.worldW / 2 - CONFIG.CANVAS_W / 2;
 CAMERA.y = CITY.worldH / 2 - CONFIG.CANVAS_H / 2;
 
-window.addEventListener("keydown", (e) => {
-    if (!INPUT.keys[e.code]) INPUT.justPressed[e.code] = true;
-    INPUT.keys[e.code] = true;
-    if (e.code === "Space") e.preventDefault();
-    if (e.code === "Escape") {
-        if (STATE === "PLAYING") STATE = "PAUSED";
-        else if (STATE === "PAUSED") STATE = "PLAYING";
-    }
-    if (e.code === "F5") { e.preventDefault(); saveGame(); }
-    if (STATE === "MISSION_DIALOG" && (e.code === "Space" || e.code === "Enter")) {
-        advanceDialogue();
-    }
+window.addEventListener("keydown", (event) => {
+  if (!INPUT.keys[event.code]) INPUT.justPressed[event.code] = true;
+  INPUT.keys[event.code] = true;
+  if (event.code === "Space") event.preventDefault();
+
+  if (event.code === "Escape") {
+    if (STATE === "PLAYING") STATE = "PAUSED";
+    else if (STATE === "PAUSED") STATE = "PLAYING";
+  }
+  if (event.code === "F5") {
+    event.preventDefault();
+    saveGame();
+  }
+  if (STATE === "MISSION_DIALOG" && (event.code === "Space" || event.code === "Enter")) {
+    advanceDialogue();
+    INPUT.justPressed[event.code] = false;
+  }
 });
-window.addEventListener("keyup", (e) => { INPUT.keys[e.code] = false; });
-canvas.addEventListener("mousemove", (e) => {
-    const rect = canvas.getBoundingClientRect();
-    MOUSE.x = e.clientX - rect.left;
-    MOUSE.y = e.clientY - rect.top;
-    MOUSE.worldX = MOUSE.x + CAMERA.x;
-    MOUSE.worldY = MOUSE.y + CAMERA.y;
+
+window.addEventListener("keyup", (event) => { INPUT.keys[event.code] = false; });
+canvas.addEventListener("mousemove", (event) => {
+  const bounds = canvas.getBoundingClientRect();
+  MOUSE.x = event.clientX - bounds.left;
+  MOUSE.y = event.clientY - bounds.top;
+  MOUSE.worldX = MOUSE.x + CAMERA.x;
+  MOUSE.worldY = MOUSE.y + CAMERA.y;
 });
-canvas.addEventListener("mousedown", (e) => {
-    INPUT.mouseDown = true; INPUT.justPressed["MouseDown"] = true;
-    MOUSE.down = true;
-    if (STATE === "TITLE") {
-        const rect = canvas.getBoundingClientRect();
-        handleTitleClick(e.clientX - rect.left, e.clientY - rect.top);
-    }
-    if (STATE === "PLAYING" && PLAYER.onFoot) {
-        playerFire();
-    }
+canvas.addEventListener("mousedown", (event) => {
+  INPUT.mouseDown = true;
+  INPUT.justPressed.MouseDown = true;
+  MOUSE.down = true;
+  if (STATE === "TITLE") {
+    const bounds = canvas.getBoundingClientRect();
+    handleTitleClick(event.clientX - bounds.left, event.clientY - bounds.top);
+  }
+  if (STATE === "PLAYING" && PLAYER.onFoot) playerFire();
 });
-window.addEventListener("mouseup", () => { INPUT.mouseDown = false; MOUSE.down = false; });
+window.addEventListener("mouseup", () => {
+  INPUT.mouseDown = false;
+  MOUSE.down = false;
+});
+
+function clearWorldActors() {
+  BULLETS.length = 0;
+  PARTICLES.length = 0;
+  SKIDMARKS.length = 0;
+  PEDS.length = 0;
+  VEHICLES.length = 0;
+  POLICE_OFFICERS.length = 0;
+  ROADBLOCKS.length = 0;
+  HELI = null;
+}
 
 function startNewGame() {
-    CASH = 500; WANTED = 0; BULLETS.length = 0; PARTICLES.length = 0; SKIDMARKS.length = 0; PEDS.length = 0; VEHICLES.length = 0; POLICE_OFFICERS.length = 0; ROADBLOCKS.length = 0; HELI = null;
-    MISSION_INDEX = 0;
-    const spawn = findPlayerSpawn();
-    initPlayer(spawn.x, spawn.y);
-    initMissions();
-    startMission(0);
-    STATE = "MISSION_DIALOG";
-    DAY_TIME = 0.35;
+  clearWorldActors();
+  CASH = 500;
+  WANTED = 0;
+  MISSION_INDEX = 0;
+  initMissions();
+  window.setMissionIndex(0);
+  try { localStorage.setItem("sc_mission", "0"); } catch (error) {}
+  const spawn = findPlayerSpawn();
+  initPlayer(spawn.x, spawn.y);
+  startMission(0);
+  STATE = "MISSION_DIALOG";
+  DAY_TIME = 0.35;
 }
 
 function continueGame() {
-    const ok = loadGame();
-    if (!ok) { startNewGame(); return; }
-    VEHICLES.length = 0; PEDS.length = 0; BULLETS.length = 0; POLICE_OFFICERS.length = 0; ROADBLOCKS.length = 0; HELI = null;
-    initMissions();
-    startMission(MISSION_INDEX);
-    STATE = "MISSION_DIALOG";
-    DAY_TIME = 0.35;
+  clearWorldActors();
+  if (!loadGame()) {
+    startNewGame();
+    return;
+  }
+  initMissions();
+  startMission(MISSION_INDEX);
+  STATE = "MISSION_DIALOG";
+  DAY_TIME = 0.35;
 }
 
 function findPlayerSpawn() {
-    let best = CITY.roadSpawns[0];
-    const cx = CITY.worldW / 2, cy = CITY.worldH / 2;
-    let bestD = 1e9;
-    for (const sp of CITY.roadSpawns) {
-        const d = Math.hypot(sp.x - cx, sp.y - cy);
-        if (d < bestD) { bestD = d; best = sp; }
-    }
-    return best;
+  const centerX = CITY.worldW / 2;
+  const centerY = CITY.worldH / 2;
+  let chosen = CITY.roadSpawns[0];
+  let chosenDistance = Infinity;
+  for (const road of CITY.roadSpawns) {
+    const distance = Math.hypot(road.x - centerX, road.y - centerY);
+    if (distance < chosenDistance) { chosen = road; chosenDistance = distance; }
+  }
+  return chosen;
 }
 
 window.GAME = { startNewGame, continueGame, state: () => STATE, onRespawn: null };
 
-Object.defineProperty(window, "SHOT_RECENT", { get: () => SHOT_RECENT, set: (v) => { SHOT_RECENT = v; } });
-Object.defineProperty(window, "STATE", { get: () => STATE, set: (v) => { STATE = v; } });
-Object.defineProperty(window, "CASH", { get: () => CASH, set: (v) => { CASH = v; } });
-Object.defineProperty(window, "WANTED", { get: () => WANTED, set: (v) => { WANTED = v; } });
-Object.defineProperty(window, "DAY_TIME", { get: () => DAY_TIME, set: (v) => { DAY_TIME = v; } });
-Object.defineProperty(window, "FROZEN", { get: () => FROZEN, set: (v) => { FROZEN = v; } });
-Object.defineProperty(window, "SHOT_MODE", { get: () => SHOT_MODE, set: (v) => { SHOT_MODE = v; } });
-Object.defineProperty(window, "SHOT_TIMER", { get: () => SHOT_TIMER, set: (v) => { SHOT_TIMER = v; } });
-Object.defineProperty(window, "SHOT_READY_FIRED", { get: () => SHOT_READY_FIRED, set: (v) => { SHOT_READY_FIRED = v; } });
-Object.defineProperty(window, "MISSION_INDEX", { get: () => MISSION_INDEX, set: (v) => { MISSION_INDEX = v; } });
+Object.defineProperty(window, "SHOT_RECENT", { get: () => SHOT_RECENT, set: (value) => { SHOT_RECENT = value; } });
+Object.defineProperty(window, "STATE", { get: () => STATE, set: (value) => { STATE = value; } });
+Object.defineProperty(window, "CASH", { get: () => CASH, set: (value) => { CASH = value; } });
+Object.defineProperty(window, "WANTED", { get: () => WANTED, set: (value) => { WANTED = value; } });
+Object.defineProperty(window, "DAY_TIME", { get: () => DAY_TIME, set: (value) => { DAY_TIME = value; } });
+Object.defineProperty(window, "FROZEN", { get: () => FROZEN, set: (value) => { FROZEN = value; } });
+Object.defineProperty(window, "SHOT_MODE", { get: () => SHOT_MODE, set: (value) => { SHOT_MODE = value; } });
+Object.defineProperty(window, "SHOT_TIMER", { get: () => SHOT_TIMER, set: (value) => { SHOT_TIMER = value; } });
+Object.defineProperty(window, "SHOT_READY_FIRED", { get: () => SHOT_READY_FIRED, set: (value) => { SHOT_READY_FIRED = value; } });
+Object.defineProperty(window, "MISSION_INDEX", { get: () => MISSION_INDEX, set: (value) => { MISSION_INDEX = value; } });
 
-if (SHOT_NAME) {
-    setTimeout(() => { setupShot(SHOT_NAME); }, 50);
-}
-
-setTimeout(() => { if (window.startLoop) window.startLoop(); }, 100);
+if (SHOT_NAME) window.setTimeout(() => setupShot(SHOT_NAME), 50);
+window.setTimeout(() => { if (window.startLoop) window.startLoop(); }, 100);

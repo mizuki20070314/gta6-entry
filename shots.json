@@ -1,6 +1,6 @@
 [
-  { "name": "1-city.jpg", "query": "?shot=city&seed=1" },
-  { "name": "2-chase.jpg", "query": "?shot=chase&seed=1" },
-  { "name": "3-mission.jpg", "query": "?shot=mission&seed=1" },
-  { "name": "4-night.jpg", "query": "?shot=night&seed=1" }
+  { "name": "1-city.jpg", "query": "?shot=city&seed=1", "_comment": "Golden-hour traffic with the full driving HUD." },
+  { "name": "2-chase.jpg", "query": "?shot=chase&seed=1", "_comment": "A four-star pursuit, patrol cars, SWAT, and a roadblock." },
+  { "name": "3-mission.jpg", "query": "?shot=mission&seed=1", "_comment": "The player stands at the marker during Marisol's briefing." },
+  { "name": "4-night.jpg", "query": "?shot=night&seed=1", "_comment": "A moonlit coastal drive with headlights and lit windows." }
 ]
