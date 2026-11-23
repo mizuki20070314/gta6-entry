@@ -1,3 +1,28 @@
+// Wanted level is the dispatch scale: each extra star broadens the response.
+// One and two stars call for patrol cars; three adds a road obstacle,
+// four brings armored response, and five puts an aircraft overhead.
+// Officers can also join nearby patrols, so the pressure is not only vehicular.
+//
+// Crimes and scripted jobs raise heat elsewhere, up to the five star cap.
+// Here, sighting the player resets the quiet-time clock.
+// Once pursuers can no longer spot the player long enough, a star drops;
+// tougher alerts wait longer before easing, giving a high level more weight.
+// The general wanted decay setting handles periods without close patrols,
+// while this clock models time spent out of police view.
+//
+// Sight is sampled between pursuer and player positions, with solid city
+// cells breaking the path. Patrol cars and foot officers use that test
+// before firing or continuing to hold the chase; cover creates room
+// to escape their view. Helicopter detection uses distance in this build.
+//
+// Arrest resolution is called when an officer or car reaches a player
+// on foot, or when a stopped ride is surrounded by enough cruisers.
+// Arrest clears the pursuit and cuts the cash balance in half.
+// It also replaces the loadout with fists, no ammunition, and no armor.
+// The BUSTED overlay lasts briefly, then returns the player to the station.
+// Fatal damage follows the separate WASTED path in player handling:
+// after its brief pause, the player returns near the hospital, loses cash,
+// and sheds some alert. Both outcomes restore active play.
 // Wanted heat builds a response from patrol cars to officers, SWAT, and air support.
 // Sight lines and star-specific timers let a player break pursuit behind cover.
 // Roadblocks, foot officers, arrest contact, and the busted overlay live here.

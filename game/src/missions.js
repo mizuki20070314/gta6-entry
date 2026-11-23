@@ -1,3 +1,28 @@
+// The campaign is a list of ten jobs that carries the player from
+// Marisol's early errands toward the rivalry and finale with Rex.
+// Each job pairs a speaker and briefing with a payout and ordered tasks.
+//
+// A task's type tells the update loop what counts as success.
+// Reaching a place, taking a marked ride, dropping off several cars,
+// staying alive, escaping pursuit, collecting an item, or clearing
+// race checkpoints each use their own completion rule. Optional fields
+// add details such as a timer, arrival radius, heat, or vehicle condition.
+//
+// Only one task is active at a time. When it finishes, setup prepares
+// the next task and resets the counters or countdowns that belong to it.
+// That keeps the story moving in a defined order while allowing each
+// job to combine different kinds of play in a single short sequence.
+//
+// A map marker follows the active destination; marked cars can move,
+// and a race points toward its next checkpoint as the route advances.
+// Some tasks create extra world objects, such as a getaway car or ambush,
+// so their marker and encounter begin with the task itself.
+//
+// The payout is granted after the final task, then a short completion
+// beat separates that job from the next briefing. The mission position
+// is stored in browser storage when the chain advances, allowing later
+// play to resume from the saved chapter rather than the opening job.
+// Timers and counters serve the current run and are prepared anew on task setup.
 // Marisol's jobs and Rex Costa's challenge form a ten chapter coastal story.
 // Every objective is a typed step, which keeps markers, timers, and rewards in sync.
 // Progress lives in local storage; the active briefing can still be replayed.

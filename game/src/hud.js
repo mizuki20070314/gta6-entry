@@ -1,3 +1,28 @@
+// The HUD is a final information pass layered above the moving city view.
+// Dark translucent panels first provide calm backing for small text and bars.
+// Health and armor then fill according to the player's current condition,
+// while cash and wanted stars stay near the opposite upper corner.
+// Equipment, district, and mission text occupy separate corners or edges
+// so route details remain readable without hiding the center of action.
+//
+// The minimap compresses the full city into a small rectangle.
+// It scales each grid cell by its row and column, then paints only
+// the terrain categories that are useful for quick orientation: streets,
+// building masses, and water. Empty categories are left as open space,
+// preserving the larger pattern instead of turning the map into noise.
+//
+// Its symbols come from live game state rather than baked map art.
+// The current objective gets a bright point, while police appear only
+// during an active pursuit; the air unit uses a round marker to differ
+// from the square ground units. The player marker follows the player's
+// facing, making the tiny map useful for choosing a direction of travel.
+//
+// When the objective falls beyond the visible camera frame, a small
+// arrow is placed where its bearing meets the screen edge. It turns
+// toward the goal and disappears once the marker itself can be seen.
+// That cue keeps a distant destination actionable while driving through
+// unfamiliar blocks, without drawing a line across the whole scene.
+// These layers are redrawn each frame so markers track changing play.
 // The HUD keeps health, armor, cash, heat, and equipment readable at a glance.
 // Its compact map mirrors the street grid and marks objectives and police units.
 // Off-screen objectives also get an edge arrow, while the district name stays visible.
