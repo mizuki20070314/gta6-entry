@@ -27,14 +27,5 @@
 <script src="src/game.js"></script>
 <script src="src/shots.js"></script>
 <script src="src/main.js"></script>
-<script>
-  window.onerror = function (msg, src, line, col, err) {
-    document.title = 'ERROR: ' + msg + ' @ ' + src + ':' + line;
-    try { document.body.dataset.error = String(msg); } catch (e) {}
-  };
-  window.addEventListener('unhandledrejection', function (e) {
-    document.title = 'REJECT: ' + (e.reason && e.reason.message ? e.reason.message : e.reason);
-  });
-</script>
 </body>
 </html>
