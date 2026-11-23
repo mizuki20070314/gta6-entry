@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>SUNSET COAST</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #1a1a2a; overflow: hidden; font-family: sans-serif; }
+  #game { display: block; margin: 0 auto; }
+  body { display: flex; align-items: center; justify-content: center; height: 100vh; }
+</style>
+</head>
+<body>
+<canvas id="game" width="1280" height="720"></canvas>
+<script src="src/config.js"></script>
+<script src="src/rng.js"></script>
+<script src="src/city.js"></script>
+<script src="src/player.js"></script>
+<script src="src/vehicles.js"></script>
+<script src="src/pedestrians.js"></script>
+<script src="src/effects.js"></script>
+<script src="src/missions.js"></script>
+<script src="src/hud.js"></script>
+<script src="src/save.js"></script>
+<script src="src/menus.js"></script>
+<script src="src/game.js"></script>
+<script src="src/shots.js"></script>
+<script src="src/main.js"></script>
+<script>
+  window.onerror = function (msg, src, line, col, err) {
+    document.title = 'ERROR: ' + msg + ' @ ' + src + ':' + line;
+    try { document.body.dataset.error = String(msg); } catch (e) {}
+  };
+  window.addEventListener('unhandledrejection', function (e) {
+    document.title = 'REJECT: ' + (e.reason && e.reason.message ? e.reason.message : e.reason);
+  });
+</script>
+</body>
+</html>
